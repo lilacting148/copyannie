@@ -1,0 +1,526 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <title>快記</title>
+    <style>
+        /* 莫蘭迪色系與基礎設定 */
+        :root {
+            --bg-color: #F2EFE9; 
+            --text-color: #5C5751; 
+            --todo-color: #C2B4A6; 
+            --buy-color: #A3B1A6;  
+            --kids-color: #D4B4B4; 
+            --work-color: #B3B7C2; 
+            --star-color: #D6A863; /* 莫蘭迪質感黃 - 星星色 */
+        }
+
+        * {
+            box-sizing: border-box;
+            font-family: 'Helvetica Neue', Arial, 'PingFang TC', 'Heiti TC', sans-serif;
+            -webkit-tap-highlight-color: transparent; 
+        }
+
+        body {
+            margin: 0;
+            padding: 0;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            display: flex;
+            justify-content: center;
+        }
+
+        #app-container {
+            width: 100%;
+            max-width: 480px;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            position: relative;
+            overflow: hidden;
+        }
+
+        /* 頂部導覽列 */
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 20px 25px;
+        }
+
+        .header h1 {
+            font-size: 24px;
+            margin: 0;
+            font-weight: 500;
+            letter-spacing: 2px;
+        }
+
+        .toggle-btn {
+            background-color: transparent;
+            border: 2px solid var(--text-color);
+            border-radius: 255px 15px 225px 15px/15px 225px 15px 255px; 
+            padding: 8px 16px;
+            color: var(--text-color);
+            font-size: 14px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .page {
+            flex: 1;
+            display: none;
+            flex-direction: column;
+            padding: 10px 25px 30px;
+            overflow-y: auto;
+        }
+        .page.active {
+            display: flex;
+        }
+
+        /* --- 輸入頁面 --- */
+        .category-group {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+            margin-bottom: 40px;
+            margin-top: 20px;
+        }
+
+        .cat-label {
+            position: relative;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 15px;
+            border-radius: 2% 4% 3% 4% / 5% 3% 5% 4%; 
+            background-color: #fff;
+            box-shadow: 2px 3px 0px rgba(0,0,0,0.05);
+            font-size: 18px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: transform 0.1s;
+        }
+
+        .cat-label input { display: none; }
+
+        .cat-label input[value="待做"]:checked + span { color: var(--todo-color); }
+        .cat-label input[value="待做"]:checked ~ .cat-bg { background-color: var(--todo-color); opacity: 0.2; }
+        
+        .cat-label input[value="待買"]:checked + span { color: var(--buy-color); }
+        .cat-label input[value="待買"]:checked ~ .cat-bg { background-color: var(--buy-color); opacity: 0.2; }
+        
+        .cat-label input[value="學習"]:checked + span { color: var(--kids-color); }
+        .cat-label input[value="學習"]:checked ~ .cat-bg { background-color: var(--kids-color); opacity: 0.2; }
+        
+        .cat-label input[value="工作"]:checked + span { color: var(--work-color); }
+        .cat-label input[value="工作"]:checked ~ .cat-bg { background-color: var(--work-color); opacity: 0.2; }
+
+        .cat-bg {
+            position: absolute;
+            top: 0; left: 0; right: 0; bottom: 0;
+            border-radius: inherit;
+            z-index: 0;
+            transition: all 0.3s;
+        }
+        .cat-label span { position: relative; z-index: 1; }
+
+        .input-wrapper {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+
+        #task-input {
+            width: 100%;
+            border: none;
+            border-bottom: 2px dashed #D0C9C0;
+            background: transparent;
+            font-size: 20px;
+            padding: 10px 5px;
+            color: var(--text-color);
+            outline: none;
+        }
+        #task-input::placeholder { color: #C0B8AF; }
+
+        #submit-btn {
+            align-self: flex-end;
+            background-color: var(--text-color);
+            color: var(--bg-color);
+            border: none;
+            border-radius: 255px 15px 225px 15px/15px 225px 15px 255px;
+            padding: 10px 25px;
+            font-size: 16px;
+            cursor: pointer;
+            margin-top: 10px;
+        }
+
+        /* --- 輸出頁面 --- */
+        .section-title {
+            font-size: 16px;
+            color: #8C867D;
+            border-bottom: 1px solid #D0C9C0;
+            padding-bottom: 5px;
+            margin-top: 20px;
+            margin-bottom: 10px;
+        }
+
+        .task-list {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+        }
+
+        .task-item {
+            display: flex;
+            align-items: center;
+            background-color: #fff;
+            padding: 15px 10px 15px 15px;
+            margin-bottom: 12px;
+            border-radius: 2% 4% 3% 4% / 5% 3% 5% 4%;
+            box-shadow: 1px 2px 0px rgba(0,0,0,0.03);
+            animation: fadeIn 0.3s ease;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(5px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .custom-checkbox {
+            width: 22px;
+            height: 22px;
+            border: 2px solid var(--text-color);
+            border-radius: 5px;
+            margin-right: 10px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            cursor: pointer;
+            flex-shrink: 0;
+        }
+        .task-item.completed .custom-checkbox {
+            background-color: var(--text-color);
+        }
+        .task-item.completed .custom-checkbox::after {
+            content: '✓';
+            color: #fff;
+            font-size: 14px;
+        }
+
+        /* 星星按鈕 */
+        .star-btn {
+            font-size: 20px;
+            color: #D0C9C0;
+            cursor: pointer;
+            margin-right: 10px;
+            user-select: none;
+            transition: color 0.2s;
+        }
+        .star-btn.important {
+            color: var(--star-color);
+        }
+
+        .task-content {
+            flex: 1;
+            display: flex;
+            align-items: center;
+            font-size: 16px;
+            -webkit-user-select: none;
+            user-select: none;
+            cursor: pointer;
+        }
+        
+        .task-cat {
+            font-weight: bold;
+            margin-right: 8px;
+        }
+        
+        .cat-color-待做 { color: var(--todo-color); }
+        .cat-color-待買 { color: var(--buy-color); }
+        .cat-color-學習 { color: var(--kids-color); }
+        .cat-color-工作 { color: var(--work-color); }
+
+        .task-text { flex: 1; }
+        .task-date {
+            font-size: 13px;
+            color: #A09A92;
+            margin-left: 10px;
+        }
+
+        .task-item.completed .task-text,
+        .task-item.completed .task-cat {
+            text-decoration: line-through;
+            color: #B0A8A0;
+        }
+
+        /* 刪除按鈕 */
+        .delete-btn {
+            color: #C0B8AF;
+            font-size: 22px;
+            padding: 0 5px;
+            margin-left: 5px;
+            cursor: pointer;
+            line-height: 1;
+        }
+
+        /* 吐司提示 (Toast) */
+        #toast {
+            position: fixed;
+            bottom: 30px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(92, 87, 81, 0.9);
+            color: white;
+            padding: 10px 20px;
+            border-radius: 20px;
+            font-size: 14px;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.3s;
+            z-index: 100;
+        }
+    </style>
+</head>
+<body>
+
+<div id="app-container">
+    <div class="header">
+        <h1 id="header-title">Annie小腦袋</h1>
+        <button id="toggle-view-btn" class="toggle-btn">看清單</button>
+    </div>
+
+    <div id="input-page" class="page active">
+        <div class="category-group">
+            <label class="cat-label">
+                <input type="radio" name="category" value="待做" checked>
+                <span>待做</span><div class="cat-bg"></div>
+            </label>
+            <label class="cat-label">
+                <input type="radio" name="category" value="待買">
+                <span>待買</span><div class="cat-bg"></div>
+            </label>
+            <label class="cat-label">
+                <input type="radio" name="category" value="學習">
+                <span>學習</span><div class="cat-bg"></div>
+            </label>
+            <label class="cat-label">
+                <input type="radio" name="category" value="工作">
+                <span>工作</span><div class="cat-bg"></div>
+            </label>
+        </div>
+        <div class="input-wrapper">
+            <input type="text" id="task-input" placeholder="寫點什麼..." autocomplete="off">
+            <button id="submit-btn">記錄</button>
+        </div>
+    </div>
+
+    <div id="output-page" class="page">
+        <div class="section-title">進行中</div>
+        <ul id="active-list" class="task-list"></ul>
+
+        <div class="section-title" style="margin-top: 30px;">已完成</div>
+        <ul id="completed-list" class="task-list"></ul>
+    </div>
+    
+    <div id="toast">已儲存</div>
+</div>
+
+<script>
+    let tasks = JSON.parse(localStorage.getItem('morandi_tasks')) || [];
+
+    const inputPage = document.getElementById('input-page');
+    const outputPage = document.getElementById('output-page');
+    const toggleBtn = document.getElementById('toggle-view-btn');
+    const headerTitle = document.getElementById('header-title');
+    const taskInput = document.getElementById('task-input');
+    const submitBtn = document.getElementById('submit-btn');
+    const activeList = document.getElementById('active-list');
+    const completedList = document.getElementById('completed-list');
+    const toast = document.getElementById('toast');
+
+    let currentView = 'input'; 
+    let longPressTimer = null; 
+
+    toggleBtn.addEventListener('click', () => {
+        if (currentView === 'input') {
+            inputPage.classList.remove('active');
+            outputPage.classList.add('active');
+            toggleBtn.textContent = '寫記事';
+            headerTitle.textContent = 'Annie小任務'; 
+            currentView = 'output';
+            renderTasks();
+        } else {
+            outputPage.classList.remove('active');
+            inputPage.classList.add('active');
+            toggleBtn.textContent = '看清單';
+            headerTitle.textContent = 'Annie小腦袋'; 
+            currentView = 'input';
+            taskInput.focus();
+        }
+    });
+
+    function getFormattedDate() {
+        const today = new Date();
+        const mm = String(today.getMonth() + 1).padStart(2, '0');
+        const dd = String(today.getDate()).padStart(2, '0');
+        return `(${mm}/${dd})`;
+    }
+
+    submitBtn.addEventListener('click', addTask);
+    taskInput.addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') addTask();
+    });
+
+    function addTask() {
+        const text = taskInput.value.trim();
+        if (!text) return;
+
+        const category = document.querySelector('input[name="category"]:checked').value;
+        const newTask = {
+            id: Date.now().toString(),
+            timestamp: Date.now(), // 用於日期排序
+            category: category,
+            text: text,
+            date: getFormattedDate(),
+            completed: false,
+            isImportant: false // 預設非重要(無星星)
+        };
+
+        tasks.push(newTask);
+        saveData();
+        
+        taskInput.value = '';
+        showToast('已儲存');
+    }
+
+    function showToast(message) {
+        toast.textContent = message;
+        toast.style.opacity = '1';
+        setTimeout(() => {
+            toast.style.opacity = '0';
+        }, 1500);
+    }
+
+    function saveData() {
+        localStorage.setItem('morandi_tasks', JSON.stringify(tasks));
+    }
+
+    function renderTasks() {
+        activeList.innerHTML = '';
+        completedList.innerHTML = '';
+
+        // 設定排序權重：工作 > 待做 > 待買 > 學習
+        const categoryOrder = { '工作': 1, '待做': 2, '待買': 3, '學習': 4 };
+
+        // 複製一份 tasks 進行排序，不影響原始陣列
+        const sortedTasks = [...tasks].sort((a, b) => {
+            // 1. 依照類別排序
+            if (categoryOrder[a.category] !== categoryOrder[b.category]) {
+                return categoryOrder[a.category] - categoryOrder[b.category];
+            }
+            // 2. 同類別中，有星星(重要)的排前面
+            if (a.isImportant !== b.isImportant) {
+                return a.isImportant ? -1 : 1;
+            }
+            // 3. 同等重要度中，依照建立時間排序 (新的在上面)
+            const timeA = a.timestamp || parseInt(a.id);
+            const timeB = b.timestamp || parseInt(b.id);
+            return timeB - timeA;
+        });
+
+        // 渲染排序後的任務
+        sortedTasks.forEach(task => {
+            const li = document.createElement('li');
+            li.className = `task-item ${task.completed ? 'completed' : ''}`;
+            
+            li.innerHTML = `
+                <div class="custom-checkbox" onclick="toggleTask('${task.id}')"></div>
+                <div class="star-btn ${task.isImportant ? 'important' : ''}" onclick="toggleStar('${task.id}')">
+                    ${task.isImportant ? '★' : '☆'}
+                </div>
+                <div class="task-content" 
+                     onmousedown="startLongPress('${task.id}')" 
+                     onmouseup="cancelLongPress()" 
+                     onmouseleave="cancelLongPress()"
+                     ontouchstart="startLongPress('${task.id}')" 
+                     ontouchend="cancelLongPress()" 
+                     ontouchmove="cancelLongPress()">
+                    <span class="task-cat cat-color-${task.category}">[${task.category}]</span>
+                    <span class="task-text">${task.text}</span>
+                    <span class="task-date">${task.date}</span>
+                </div>
+                <div class="delete-btn" onclick="deleteTask('${task.id}')">×</div>
+            `;
+
+            // 因為已經排序過，使用 appendChild 依序放入即可確保順序正確
+            if (task.completed) {
+                completedList.appendChild(li);
+            } else {
+                activeList.appendChild(li);
+            }
+        });
+    }
+
+    // 星星點擊切換邏輯
+    window.toggleStar = function(id) {
+        const taskIndex = tasks.findIndex(t => t.id === id);
+        if (taskIndex > -1) {
+            tasks[taskIndex].isImportant = !tasks[taskIndex].isImportant;
+            saveData();
+            renderTasks(); // 重新渲染並自動排序
+        }
+    };
+
+    window.startLongPress = function(id) {
+        longPressTimer = setTimeout(() => {
+            editTask(id);
+        }, 600); 
+    };
+
+    window.cancelLongPress = function() {
+        if (longPressTimer) {
+            clearTimeout(longPressTimer);
+            longPressTimer = null;
+        }
+    };
+
+    window.editTask = function(id) {
+        const taskIndex = tasks.findIndex(t => t.id === id);
+        if (taskIndex > -1) {
+            const currentText = tasks[taskIndex].text;
+            const newText = prompt("修改記事內容：", currentText);
+            
+            if (newText !== null && newText.trim() !== "") {
+                tasks[taskIndex].text = newText.trim();
+                saveData();
+                renderTasks();
+                showToast('已修改');
+            }
+        }
+    };
+
+    window.deleteTask = function(id) {
+        if (confirm("確定要刪除這筆記事嗎？")) {
+            tasks = tasks.filter(t => t.id !== id);
+            saveData();
+            renderTasks();
+            showToast('已刪除');
+        }
+    };
+
+    window.toggleTask = function(id) {
+        const taskIndex = tasks.findIndex(t => t.id === id);
+        if (taskIndex > -1) {
+            tasks[taskIndex].completed = !tasks[taskIndex].completed;
+            saveData();
+            renderTasks();
+        }
+    };
+</script>
+
+</body>
+</html>
